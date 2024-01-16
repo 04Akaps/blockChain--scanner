@@ -1,7 +1,9 @@
 package node
 
 import (
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"math/big"
 	"scanner/env"
 	. "scanner/util"
 )
@@ -25,4 +27,12 @@ func NewNode(env *env.Env) (*Node, error) {
 		return n, nil
 	}
 
+}
+
+func (n *Node) GetLatestBlock() (uint64, error) {
+	return n.client.BlockNumber(Context())
+}
+
+func (n *Node) GetBlockByNumber(block *big.Int) (*types.Block, error) {
+	return n.client.BlockByNumber(Context(), block)
 }

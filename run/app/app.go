@@ -1,8 +1,8 @@
 package app
 
 import (
-	"fmt"
 	"scanner/env"
+	"scanner/log"
 	"scanner/repo"
 )
 
@@ -20,9 +20,9 @@ func NewApp(e *env.Env) {
 	var err error
 
 	if a.repo, err = repo.NewRepo(e); err != nil {
-		// TODO Log
-		fmt.Println(err)
+		log.ErrLog(err.Error())
+	} else {
+
 	}
 
-	fmt.Println(a)
 }
