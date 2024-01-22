@@ -15,7 +15,8 @@ type Env struct {
 	}
 
 	Node struct {
-		Dial string
+		Dial       string
+		StartBlock uint64
 	}
 
 	Log struct {

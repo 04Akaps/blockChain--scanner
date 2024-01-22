@@ -1,6 +1,7 @@
 package app
 
 import (
+	"scanner/chain"
 	"scanner/env"
 	"scanner/log"
 	"scanner/repo"
@@ -22,7 +23,7 @@ func NewApp(e *env.Env) {
 	if a.repo, err = repo.NewRepo(e); err != nil {
 		log.ErrLog(err.Error())
 	} else {
-
+		chain.NewChain(e, a.repo, e.Node.StartBlock)
 	}
 
 }

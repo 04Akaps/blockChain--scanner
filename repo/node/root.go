@@ -36,3 +36,7 @@ func (n *Node) GetLatestBlock() (uint64, error) {
 func (n *Node) GetBlockByNumber(block *big.Int) (*types.Block, error) {
 	return n.client.BlockByNumber(Context(), block)
 }
+
+func (n *Node) GetChainID() (*big.Int, error) {
+	return n.client.ChainID(Context())
+}

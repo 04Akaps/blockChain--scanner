@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -34,14 +35,20 @@ func GetLogFile() *os.File {
 }
 
 func InfoLog(w string) {
-	log.Printf("[INFO] " + w)
+	msg := "[INFO] " + w
+	fmt.Println(msg)
+	log.Printf(msg)
 }
 
 func ErrLog(w string) {
-	log.Printf("[ERR] " + w)
+	msg := "[ERR] " + w
+	fmt.Println(msg)
+	log.Printf(msg)
 }
 
 func CritLog(w string) {
-	log.Printf("[Crit] " + w)
+	msg := "[Crit] " + w
+	fmt.Println(msg)
+	log.Printf(msg)
 	panic(w)
 }
