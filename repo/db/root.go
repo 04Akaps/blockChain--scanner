@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -43,6 +44,23 @@ func NewDB(env *env.Env) (*DB, error) {
 		return d, nil
 	}
 
+}
+
+//0x9ff6712d37633e5b00a8cb9a86154db5e846602faafc0ea00bdab7ad0d6d0c84
+
+func (d *DB) SaveTx(tx *types.CTx) error {
+	filter := bson.M{"hash": hexutil.Encode(tx.Hash[:])}
+
+	opt := options.Update().SetUpsert(true)
+
+	if j, err := toJson(tx); err != nil {
+		return err
+	} else if result, err := d.tx.UpdateOne(Context(), filter, bson.M{"$set": j}, opt); err != nil {
+		return err
+	} else {
+		log.InfoLog("success to upsert block, modified : " + ToString(result.ModifiedCount) + " upserted : " + ToString(result.UpsertedCount))
+		return nil
+	}
 }
 
 func (d *DB) SaveBlock(b *types.CBlock) error {

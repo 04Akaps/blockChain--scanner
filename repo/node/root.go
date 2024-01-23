@@ -40,3 +40,7 @@ func (n *Node) GetBlockByNumber(block *big.Int) (*types.Block, error) {
 func (n *Node) GetChainID() (*big.Int, error) {
 	return n.client.ChainID(Context())
 }
+
+func (n *Node) GetClient() *ethclient.Client {
+	return n.client
+}

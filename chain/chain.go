@@ -7,7 +7,7 @@ import (
 	"scanner/log"
 	"scanner/repo"
 	. "scanner/types"
-	"scanner/util"
+	. "scanner/util"
 	"sync/atomic"
 	"time"
 )
@@ -15,6 +15,7 @@ import (
 type Chain struct {
 	env     *env.Env
 	chainID *big.Int
+	signer  types.EIP155Signer
 
 	repo *repo.Repo
 }
@@ -28,6 +29,8 @@ func NewChain(env *env.Env, repo *repo.Repo, startBlock uint64) {
 	var err error
 	if c.chainID, err = c.getChainId(); err != nil {
 		log.CritLog(err.Error())
+	} else {
+		c.signer = types.NewEIP155Signer(c.chainID)
 	}
 
 	c.scanBlock(startBlock)
@@ -59,7 +62,7 @@ func (c *Chain) scanBlock(startBlock uint64) {
 		} else if ltBlock < st {
 			log.InfoLog(ErrToString(BlockNumberInvalid))
 		} else {
-			log.InfoLog("read Block Success : " + util.ToString(ltBlock))
+			log.InfoLog("read Block Success : " + ToString(ltBlock))
 
 			go c.readBlock(st, ltBlock)
 
@@ -75,21 +78,40 @@ func (c *Chain) readBlock(startBlock uint64, endBlock uint64) {
 		if blockToRead, err := c.getBlockByNumber(big.NewInt(int64(i))); err != nil {
 			log.ErrLog(ErrToString(CanNotFindBlock) + "err" + err.Error() + "block" + string(i))
 			continue
-		} else if blockToRead.Transactions().Len() < 1 {
-			log.InfoLog(ErrToString(BlockTxLengthZero))
-			continue
 		} else {
-			log.InfoLog("Scan Block Success : " + util.ToString(blockToRead.Number()))
+			totalLen := blockToRead.Transactions().Len()
 
-			go c.saveBlock(blockToRead) // Tx가 존재하는 블록을 저장
+			if totalLen < 1 {
+				log.InfoLog(ErrToString(BlockTxLengthZero))
+				continue
+			} else {
+				log.InfoLog("Scan Block Success : " + ToString(blockToRead.Number()))
 
-			for j := 0; j < blockToRead.Transactions().Len(); j++ {
+				go c.saveBlock(blockToRead) // Tx가 존재하는 블록을 저장
 
+				for j := 0; j < totalLen; j++ {
+					tx := blockToRead.Transactions()[j]
+					go c.saveTx(tx, j, totalLen, blockToRead.Header())
+				}
 			}
+
 		}
 
 	}
 
+}
+
+func (c *Chain) saveTx(tx *types.Transaction, index, totalLen int, blockHeader *types.Header) {
+	client := c.repo.Node.GetClient()
+
+	if re, err := client.TransactionReceipt(Context(), tx.Hash()); err != nil {
+		log.ErrLog(err.Error())
+	} else {
+		ct := MakeCustomTx(tx, uint64(index), uint64(totalLen), blockHeader, re, &c.signer)
+		if err = c.repo.DB.SaveTx(ct); err != nil {
+			log.ErrLog(err.Error())
+		}
+	}
 }
 
 func (c *Chain) saveBlock(b *types.Block) {
