@@ -2,7 +2,9 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"reflect"
 	"strconv"
 )
 
@@ -22,5 +24,23 @@ func ToString(req interface{}) string {
 		return strconv.Itoa(int(req.(uint64)))
 	default:
 		return ""
+	}
+}
+
+func ToJson(t interface{}) (interface{}, error) {
+	var v interface{}
+	if bytes, err := json.Marshal(t); err != nil {
+		return nil, err
+	} else if err := json.Unmarshal(bytes, &v); err != nil {
+		return nil, err
+	} else {
+		jsonMap := v.(map[string]interface{})
+		for key, value := range jsonMap {
+			if reflect.TypeOf(value) == reflect.TypeOf(float64(0)) {
+				jsonMap[key] = int64(value.(float64))
+			}
+		}
+
+		return jsonMap, nil
 	}
 }

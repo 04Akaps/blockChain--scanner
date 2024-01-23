@@ -1,7 +1,11 @@
 package chain
 
 import (
+	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"math/big"
 	"scanner/env"
 	"scanner/log"
@@ -87,12 +91,9 @@ func (c *Chain) readBlock(startBlock uint64, endBlock uint64) {
 			} else {
 				log.InfoLog("Scan Block Success : " + ToString(blockToRead.Number()))
 
-				go c.saveBlock(blockToRead) // Tx가 존재하는 블록을 저장
+				go c.saveBlock(blockToRead)                              // Tx가 존재하는 블록을 저장
+				go c.saveTx(blockToRead, totalLen, blockToRead.Header()) // 블럭에 있는 tx 리스트 들을 모두 저장
 
-				for j := 0; j < totalLen; j++ {
-					tx := blockToRead.Transactions()[j]
-					go c.saveTx(tx, j, totalLen, blockToRead.Header())
-				}
 			}
 
 		}
@@ -101,17 +102,39 @@ func (c *Chain) readBlock(startBlock uint64, endBlock uint64) {
 
 }
 
-func (c *Chain) saveTx(tx *types.Transaction, index, totalLen int, blockHeader *types.Header) {
+func (c *Chain) saveTx(blockToRead *types.Block, totalLen int, blockHeader *types.Header) {
 	client := c.repo.Node.GetClient()
 
-	if re, err := client.TransactionReceipt(Context(), tx.Hash()); err != nil {
-		log.ErrLog(err.Error())
-	} else {
-		ct := MakeCustomTx(tx, uint64(index), uint64(totalLen), blockHeader, re, &c.signer)
-		if err = c.repo.DB.SaveTx(ct); err != nil {
+	var writeModel []mongo.WriteModel
+
+	for j := 0; j < totalLen; j++ {
+		tx := blockToRead.Transactions()[j]
+
+		if re, err := client.TransactionReceipt(Context(), tx.Hash()); err != nil {
+			log.ErrLog(err.Error())
+		} else {
+			ct := MakeCustomTx(tx, uint64(j), uint64(totalLen), blockHeader, re, &c.signer)
+
+			if v, err := ToJson(ct); err != nil {
+				log.ErrLog(fmt.Sprintf("failed to json tx : %s", hexutil.Encode(ct.Hash[:])))
+				continue
+			} else {
+				writeModel = append(
+					writeModel,
+					mongo.NewUpdateOneModel().SetUpsert(true).
+						SetFilter(bson.M{"hash": hexutil.Encode(ct.Hash[:])}).
+						SetUpdate(bson.M{"$set": v}),
+				)
+			}
+		}
+	}
+
+	if len(writeModel) != 0 {
+		if err := c.repo.DB.BulkSaveTx(writeModel); err != nil {
 			log.ErrLog(err.Error())
 		}
 	}
+
 }
 
 func (c *Chain) saveBlock(b *types.Block) {
